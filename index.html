@@ -1,655 +1,693 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="th" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบสถิติการบังคับใช้กฎหมาย 10 ข้อหาหลัก</title>
+    <title>ระบบรายงานผลผู้บริหาร | Traffic Fines Analytics</title>
+    
+    <!-- Google Fonts: Prompt -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- ApexCharts -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 
-    <!-- React & ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
-    <!-- Babel -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Prompt', 'sans-serif'],
+                    },
+                    colors: {
+                        brandBg: '#0F172A',      /* Slate 900 */
+                        brandCard: '#1E293B',    /* Slate 800 */
+                        brandBorder: '#334155',  /* Slate 700 */
+                        goldMain: '#D4AF37',     /* Official Gold */
+                        goldLight: '#FDE047',
+                        textMain: '#F8FAFC',     /* Slate 50 */
+                        textMuted: '#94A3B8',    /* Slate 400 */
+                        success: '#10B981',      /* Emerald 500 */
+                        danger: '#EF4444',       /* Red 500 */
+                        warning: '#F59E0B',      /* Amber 500 */
+                        info: '#3B82F6'          /* Blue 500 */
+                    }
+                }
+            }
+        }
+    </script>
 
     <style>
         body {
-            font-family: 'Prompt', sans-serif;
-            background-color: #f8fafc;
+            background-color: #0F172A;
+            color: #F8FAFC;
         }
-        /* Custom Scrollbar */
-        .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Professional Corporate Cards */
+        .exec-card {
+            background-color: #1E293B;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: all 0.2s ease-in-out;
+        }
         
-        .glass-panel {
-            background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%);
-            backdrop-filter: blur(10px);
+        .exec-card:hover {
+            border-color: #475569;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0F172A; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        /* ApexCharts Professional Overrides */
+        .apexcharts-tooltip {
+            background: #1E293B !important;
+            border: 1px solid #334155 !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+            color: #F8FAFC !important;
+        }
+        .apexcharts-tooltip-title {
+            background: #0F172A !important;
+            border-bottom: 1px solid #334155 !important;
+            font-family: 'Prompt', sans-serif !important;
+            font-weight: 600 !important;
+        }
+        .apexcharts-text {
+            font-family: 'Prompt', sans-serif !important;
+        }
+        .apexcharts-datalabel-value, .apexcharts-datalabel-label {
+            fill: #F8FAFC !important;
+        }
+
+        /* Presentation Mode */
+        .sidebar, .top-header { transition: transform 0.3s ease, opacity 0.3s ease; }
+        body.presentation-mode .sidebar { transform: translateX(-100%); width: 0; opacity: 0; }
+        body.presentation-mode .top-header { transform: translateY(-100%); height: 0; opacity: 0; overflow: hidden; padding: 0; margin: 0; border: none; }
+        
+        /* Table Styles */
+        th { letter-spacing: 0.05em; }
+        tr:hover { background-color: rgba(255, 255, 255, 0.02); }
     </style>
 </head>
-<body>
-    <div id="root"></div>
+<body class="antialiased overflow-hidden flex h-screen">
 
-    <script type="text/babel">
-        const { useState, useEffect, useMemo, useRef } = React;
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-brandBg z-[100] flex flex-col items-center justify-center transition-opacity duration-500">
+        <div class="w-16 h-16 border-4 border-brandBorder border-t-goldMain rounded-full animate-spin mb-4"></div>
+        <h2 class="text-xl font-semibold text-textMain tracking-wide">กำลังเตรียมข้อมูลระบบรายงานผล</h2>
+        <p class="text-sm text-textMuted mt-2">Executive Information System (EIS)</p>
+    </div>
 
-        const mockData = [
-            { year: 2568, bureau: "บช.ก.", division: "บก.ทล.", o1: 651, o2: 23307, o3: 44, o4: 2135, o5: 34469, o6: 4082030, o7: 1834755, o8: 827, o9: 42, o10: 185 },
-            { year: 2568, bureau: "บช.น.", division: "บก.จร.", o1: 30326, o2: 7913, o3: 1012, o4: 2385, o5: 50436, o6: 59077, o7: 31142, o8: 6418, o9: 2322, o10: 1363 },
-            { year: 2568, bureau: "ภ.7", division: "ภ.จว.นครปฐม", o1: 7602, o2: 16971, o3: 1102, o4: 2187, o5: 20278, o6: 2577, o7: 1817, o8: 2759, o9: 1794, o10: 1633 }
+    <!-- Sidebar -->
+    <aside class="sidebar w-20 lg:w-64 bg-brandCard border-r border-brandBorder flex flex-col justify-between z-50 flex-shrink-0">
+        <div>
+            <!-- Logo -->
+            <div class="h-20 flex items-center justify-center lg:justify-start lg:px-6 border-b border-brandBorder">
+                <div class="w-10 h-10 rounded bg-brandBg border border-brandBorder flex items-center justify-center text-goldMain">
+                    <i class="ph-fill ph-shield-star text-2xl"></i>
+                </div>
+                <div class="hidden lg:block ml-3">
+                    <h1 class="text-white font-bold text-lg leading-tight">RTP ANALYTICS</h1>
+                    <p class="text-goldMain text-[10px] uppercase tracking-widest font-semibold">Executive Dashboard</p>
+                </div>
+            </div>
+
+            <!-- Nav -->
+            <nav class="p-4 space-y-2 mt-2">
+                <a href="#" class="flex items-center gap-3 px-3 py-3 lg:px-4 lg:py-3 bg-brandBg text-goldMain border border-brandBorder rounded-lg">
+                    <i class="ph-fill ph-chart-line-up text-xl"></i>
+                    <span class="hidden lg:block font-medium text-sm">ภาพรวมสถิติ (Overview)</span>
+                </a>
+                <a href="https://docs.google.com/spreadsheets/d/1DzFP8sjfMmrA07ifYHeWfKOBy9rI3dmqematusjBbw0/edit?usp=sharing" target="_blank" class="flex items-center gap-3 px-3 py-3 lg:px-4 lg:py-3 text-textMuted hover:text-textMain hover:bg-white/5 rounded-lg transition-colors">
+                    <i class="ph ph-database text-xl"></i>
+                    <span class="hidden lg:block font-medium text-sm">ฐานข้อมูล (Data Source)</span>
+                </a>
+            </nav>
+        </div>
+        
+        <div class="p-4 border-t border-brandBorder bg-brandBg/50">
+            <div class="flex items-center gap-3 px-2 lg:px-4">
+                <div class="w-10 h-10 rounded-full bg-brandCard flex-shrink-0 border border-brandBorder flex items-center justify-center text-textMuted">
+                    <i class="ph-fill ph-user text-xl"></i>
+                </div>
+                <div class="hidden lg:block overflow-hidden">
+                    <p class="text-sm font-bold text-textMain truncate">ผู้บริหารระดับสูง</p>
+                    <p class="text-[11px] text-textMuted truncate">สำนักงานตำรวจแห่งชาติ</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col h-screen overflow-hidden bg-brandBg">
+        
+        <!-- Header -->
+        <header class="top-header h-20 bg-brandCard border-b border-brandBorder flex items-center justify-between px-6 lg:px-8 z-40 flex-shrink-0">
+            <div>
+                <h2 class="text-xl font-bold text-textMain">รายงานสรุปผลการชำระค่าปรับจราจร</h2>
+                <div class="flex items-center gap-2 mt-1">
+                    <span id="connection-status-dot" class="w-2 h-2 rounded-full bg-success"></span>
+                    <span id="connection-status-text" class="text-xs text-textMuted font-medium">เชื่อมต่อฐานข้อมูลเรียบร้อย</span>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <!-- Filters -->
+                <div class="relative hidden sm:block">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="ph ph-calendar-blank text-textMuted"></i>
+                    </div>
+                    <select id="filter-year" class="appearance-none bg-brandBg border border-brandBorder text-textMain text-sm py-2 pl-9 pr-8 rounded-lg focus:outline-none focus:border-goldMain cursor-pointer">
+                        <option value="All">ทุกปี พ.ศ.</option>
+                    </select>
+                    <div class="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
+                        <i class="ph ph-caret-down text-textMuted text-xs"></i>
+                    </div>
+                </div>
+
+                <div class="relative hidden sm:block">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="ph ph-buildings text-textMuted"></i>
+                    </div>
+                    <select id="filter-bureau" class="appearance-none bg-brandBg border border-brandBorder text-textMain text-sm py-2 pl-9 pr-8 rounded-lg focus:outline-none focus:border-goldMain cursor-pointer">
+                        <option value="All">ทุกกองบัญชาการ</option>
+                    </select>
+                    <div class="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
+                        <i class="ph ph-caret-down text-textMuted text-xs"></i>
+                    </div>
+                </div>
+
+                <div class="w-px h-8 bg-brandBorder mx-1"></div>
+
+                <!-- Action Buttons -->
+                <button onclick="exportToCSV()" class="p-2 text-textMuted hover:text-textMain hover:bg-brandBorder rounded-lg transition-all" title="ส่งออกรายงาน (CSV)">
+                    <i class="ph ph-download-simple text-xl"></i>
+                </button>
+                <button onclick="togglePresentation()" class="p-2 text-textMuted hover:text-textMain hover:bg-brandBorder rounded-lg transition-all" title="โหมดนำเสนอ (Full Screen)">
+                    <i class="ph ph-presentation-chart text-xl"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Dashboard Content -->
+        <main class="flex-1 overflow-y-auto p-6 lg:p-8 custom-scrollbar">
+            <div class="max-w-[1600px] mx-auto space-y-6">
+
+                <!-- AI Executive Summary -->
+                <div class="exec-card p-5 border-l-4 border-l-info flex items-start gap-4">
+                    <div class="p-2.5 bg-brandBg rounded-lg text-info border border-brandBorder">
+                        <i class="ph-fill ph-lightbulb text-xl"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-sm font-semibold text-textMain mb-1">ข้อค้นพบสำคัญ (Key Insights)</h3>
+                        <p id="ai-summary-text" class="text-sm text-textMuted leading-relaxed">
+                            กำลังประมวลผลข้อมูลทางสถิติ...
+                        </p>
+                    </div>
+                </div>
+
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                    <!-- Total -->
+                    <div class="exec-card p-6 flex flex-col justify-between">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <p class="text-xs font-semibold text-textMuted uppercase tracking-wider mb-1">ใบสั่งทั้งหมด</p>
+                                <h3 class="text-3xl font-bold text-textMain" id="stat-total">0</h3>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-brandBg border border-brandBorder flex items-center justify-center">
+                                <i class="ph-fill ph-files text-xl text-textMuted"></i>
+                            </div>
+                        </div>
+                        <div class="text-xs text-textMuted">รายการใบสั่งสะสมในระบบ</div>
+                    </div>
+                    
+                    <!-- Paid -->
+                    <div class="exec-card p-6 flex flex-col justify-between border-b-4 border-b-success">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <p class="text-xs font-semibold text-textMuted uppercase tracking-wider mb-1">ชำระเงินเรียบร้อย</p>
+                                <h3 class="text-3xl font-bold text-textMain" id="stat-paid">0</h3>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-success/10 text-success flex items-center justify-center">
+                                <i class="ph-fill ph-check-circle text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="w-full bg-brandBg rounded-full h-1.5 border border-brandBorder">
+                            <div class="bg-success h-1.5 rounded-full" id="bar-paid-percent" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Unpaid -->
+                    <div class="exec-card p-6 flex flex-col justify-between border-b-4 border-b-danger">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <p class="text-xs font-semibold text-textMuted uppercase tracking-wider mb-1">ยอดค้างชำระ</p>
+                                <h3 class="text-3xl font-bold text-textMain" id="stat-unpaid">0</h3>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-danger/10 text-danger flex items-center justify-center">
+                                <i class="ph-fill ph-warning-circle text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="w-full bg-brandBg rounded-full h-1.5 border border-brandBorder">
+                            <div class="bg-danger h-1.5 rounded-full" id="bar-unpaid-percent" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Rate -->
+                    <div class="exec-card p-6 flex flex-col justify-between border-b-4 border-b-goldMain">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <p class="text-xs font-semibold text-textMuted uppercase tracking-wider mb-1">อัตราความสำเร็จ</p>
+                                <div class="flex items-baseline gap-1">
+                                    <h3 class="text-3xl font-bold text-textMain" id="stat-percent">0.00</h3>
+                                    <span class="text-lg font-bold text-goldMain">%</span>
+                                </div>
+                            </div>
+                            <div class="w-10 h-10 rounded-lg bg-brandBg border border-brandBorder text-goldMain flex items-center justify-center">
+                                <i class="ph-fill ph-chart-pie-slice text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="text-xs text-textMuted">ร้อยละของการชำระค่าปรับสำเร็จ</div>
+                    </div>
+                </div>
+
+                <!-- Charts Area -->
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                    <!-- Bar Chart -->
+                    <div class="exec-card p-6 xl:col-span-2">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h3 class="text-base font-bold text-textMain">สถิติเปรียบเทียบแนวโน้มรายปี</h3>
+                                <p class="text-xs text-textMuted mt-1">แสดงสัดส่วนการชำระและค้างชำระ (หน่วย: ล้านใบสั่ง)</p>
+                            </div>
+                        </div>
+                        <div id="chart-bar" class="w-full h-[320px]"></div>
+                    </div>
+                    
+                    <!-- Donut Chart -->
+                    <div class="exec-card p-6">
+                        <div class="mb-6">
+                            <h3 class="text-base font-bold text-textMain">5 อันดับ บช. ค้างชำระสูงสุด</h3>
+                            <p class="text-xs text-textMuted mt-1">แสดงสัดส่วนร้อยละของการค้างชำระ</p>
+                        </div>
+                        <div id="chart-donut" class="w-full h-[320px] flex items-center justify-center"></div>
+                    </div>
+                </div>
+
+                <!-- Data Table -->
+                <div class="exec-card flex flex-col overflow-hidden">
+                    <div class="p-5 border-b border-brandBorder flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-brandBg/50">
+                        <div>
+                            <h3 class="text-base font-bold text-textMain">รายละเอียดข้อมูลสถิติ</h3>
+                            <p class="text-xs text-textMuted mt-1">ตารางสรุปผลการดำเนินงานแยกตามกองบัญชาการ</p>
+                        </div>
+                        <!-- Search Box -->
+                        <div class="relative w-full sm:w-64">
+                            <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-textMuted"></i>
+                            <input type="text" id="table-search" placeholder="ค้นหา บช. หรือ ปีพ.ศ." class="w-full bg-brandBg border border-brandBorder text-textMain text-sm py-2 pl-9 pr-3 rounded-lg focus:outline-none focus:border-goldMain transition-all" onkeyup="filterTable()">
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-brandBg text-textMuted text-xs uppercase tracking-wider border-b border-brandBorder">
+                                    <th class="p-4 pl-6 font-semibold">ปี พ.ศ.</th>
+                                    <th class="p-4 font-semibold">กองบัญชาการ</th>
+                                    <th class="p-4 text-right font-semibold">ยอดใบสั่งทั้งหมด</th>
+                                    <th class="p-4 text-right font-semibold text-success">ชำระแล้ว</th>
+                                    <th class="p-4 text-right font-semibold text-danger pr-6">ค้างชำระ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body" class="text-sm divide-y divide-brandBorder bg-brandCard text-textMain">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <footer class="pt-4 pb-8 text-center text-textMuted text-xs">
+                    &copy; 2026 Royal Thai Police. Executive Information System (EIS). All Rights Reserved.
+                </footer>
+
+            </div>
+        </main>
+
+        <!-- Exit Presentation Btn -->
+        <button id="exit-presentation" onclick="togglePresentation()" class="fixed bottom-6 right-6 z-[200] p-3 bg-brandCard border border-brandBorder text-textMain rounded-full shadow-lg hidden opacity-0 transition-opacity hover:bg-brandBorder">
+            <i class="ph ph-corners-in text-2xl"></i>
+        </button>
+    </div>
+
+    <!-- JAVASCRIPT -->
+    <script>
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwrnkqNEskz3TftanjwtD16D3rCJXmBRB4KHpI4XuN0zhsS-RDfxjCY9wkfTxNYDDVT/exec"; 
+
+        const MOCK_DATA = [
+            {"ปี พ.ศ.": 2566, "บช.": "บช.ก.", "บก./ภ.จว.": "บก.ทล.", "จำนวนใบสั่งทั้งหมด": 9466603, "จำนวนใบสั่งที่ชำระแล้ว": 1877173, "จำนวนใบสั่งที่ยังไม่ชำระ": 7589430},
+            {"ปี พ.ศ.": 2567, "บช.": "บช.ก.", "บก./ภ.จว.": "บก.ทล.", "จำนวนใบสั่งทั้งหมด": 10330101, "จำนวนใบสั่งที่ชำระแล้ว": 2383040, "จำนวนใบสั่งที่ยังไม่ชำระ": 7947061},
+            {"ปี พ.ศ.": 2568, "บช.": "บช.น.", "บก./ภ.จว.": "บก.จร.", "จำนวนใบสั่งทั้งหมด": 463413, "จำนวนใบสั่งที่ชำระแล้ว": 244712, "จำนวนใบสั่งที่ยังไม่ชำระ": 218701},
+            {"ปี พ.ศ.": 2568, "บช.": "ภ.1", "บก./ภ.จว.": "ภ.จว.นนทบุรี", "จำนวนใบสั่งทั้งหมด": 140000, "จำนวนใบสั่งที่ชำระแล้ว": 60000, "จำนวนใบสั่งที่ยังไม่ชำระ": 80000},
+            {"ปี พ.ศ.": 2569, "บช.": "ภ.5", "บก./ภ.จว.": "ภ.จว.เชียงใหม่", "จำนวนใบสั่งทั้งหมด": 42922, "จำนวนใบสั่งที่ชำระแล้ว": 34629, "จำนวนใบสั่งที่ยังไม่ชำระ": 8293},
         ];
 
-        const offenseLabels = {
-            o1: "ไม่สวมหมวกนิรภัย", o2: "มอเตอร์ไซค์ไม่ปลอดภัย", o3: "เมาขับ", 
-            o4: "ไม่คาดเข็มขัดนิรภัย", o5: "ไม่มีใบขับขี่", o6: "ความเร็ว", 
-            o7: "ฝ่าฝืนสัญญาณไฟจราจร", o8: "ย้อนศร", o9: "แซงในที่คับขัน", o10: "ใช้โทรศัพท์"
+        let rawData = [];
+        let filteredData = [];
+        let barChartInstance = null;
+        let donutChartInstance = null;
+        let isPresentationMode = false;
+
+        const colors = { 
+            success: '#10B981', 
+            danger: '#EF4444', 
+            gold: '#D4AF37',
+            bg: '#1E293B', 
+            textMuted: '#94A3B8',
+            border: '#334155'
         };
 
-        // --- Chart Components ---
-        const ParetoChart = ({ data }) => {
-            const chartRef = useRef(null);
-            const chartInstance = useRef(null);
-            useEffect(() => {
-                if (chartInstance.current) chartInstance.current.destroy();
-                const ctx = chartRef.current.getContext('2d');
-                chartInstance.current = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: data.map(d => d.name),
-                        datasets: [
-                            {
-                                type: 'line',
-                                label: 'เปอร์เซ็นต์สะสม (%)',
-                                data: data.map(d => d.cumulativePercent),
-                                borderColor: '#ef4444', backgroundColor: '#ef4444',
-                                borderWidth: 2, yAxisID: 'y1', pointRadius: 4
-                            },
-                            {
-                                type: 'bar',
-                                label: 'จำนวนคดี',
-                                data: data.map(d => d.value),
-                                backgroundColor: 'rgba(59, 130, 246, 0.7)',
-                                borderRadius: 4, yAxisID: 'y'
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true, maintainAspectRatio: false,
-                        interaction: { mode: 'index', intersect: false },
-                        scales: {
-                            y: { type: 'linear', display: true, position: 'left' },
-                            y1: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false }, max: 100, ticks: { callback: v => v + '%' } },
-                            x: { ticks: { maxRotation: 45, minRotation: 45, font: { size: 10 } } }
-                        }
-                    }
-                });
-                return () => { if (chartInstance.current) chartInstance.current.destroy(); };
-            }, [data]);
-            return <canvas ref={chartRef}></canvas>;
-        };
+        const formatNum = (num) => new Intl.NumberFormat('th-TH').format(num);
 
-        const RadarChart = ({ data, label1, label2 }) => {
-            const chartRef = useRef(null);
-            const chartInstance = useRef(null);
-            useEffect(() => {
-                if (!data || data.length === 0) return;
-                if (chartInstance.current) chartInstance.current.destroy();
-                const ctx = chartRef.current.getContext('2d');
-                chartInstance.current = new Chart(ctx, {
-                    type: 'radar',
-                    data: {
-                        labels: Object.values(offenseLabels),
-                        datasets: [
-                            {
-                                label: label1,
-                                data: data.dataset1,
-                                backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                                borderColor: 'rgba(59, 130, 246, 1)',
-                                pointBackgroundColor: 'rgba(59, 130, 246, 1)',
-                            },
-                            {
-                                label: label2,
-                                data: data.dataset2,
-                                backgroundColor: 'rgba(239, 68, 68, 0.2)',
-                                borderColor: 'rgba(239, 68, 68, 1)',
-                                pointBackgroundColor: 'rgba(239, 68, 68, 1)',
-                            }
-                        ]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, scales: { r: { ticks: { backdropColor: 'transparent' } } } }
-                });
-                return () => { if (chartInstance.current) chartInstance.current.destroy(); };
-            }, [data, label1, label2]);
-            return <canvas ref={chartRef}></canvas>;
-        };
-
-        const CorrelationChart = ({ data }) => {
-            const chartRef = useRef(null);
-            const chartInstance = useRef(null);
-            useEffect(() => {
-                if (chartInstance.current) chartInstance.current.destroy();
-                const ctx = chartRef.current.getContext('2d');
-                chartInstance.current = new Chart(ctx, {
-                    type: 'scatter',
-                    data: {
-                        datasets: [{
-                            label: 'ความสัมพันธ์รายหน่วยงาน',
-                            data: data.points.map(p => ({ x: p.x, y: p.y, division: p.division })),
-                            backgroundColor: 'rgba(16, 185, 129, 0.6)'
-                        }]
-                    },
-                    options: {
-                        responsive: true, maintainAspectRatio: false,
-                        plugins: {
-                            tooltip: { callbacks: { label: (ctx) => `${ctx.raw.division}: (${ctx.raw.x}, ${ctx.raw.y})` } }
-                        },
-                        scales: { x: { title: { display: true, text: data.xLabel } }, y: { title: { display: true, text: data.yLabel } } }
-                    }
-                });
-                return () => { if (chartInstance.current) chartInstance.current.destroy(); };
-            }, [data]);
-            return <canvas ref={chartRef}></canvas>;
-        };
-
-        const SortIcon = ({ columnKey, sortConfig }) => {
-            if (sortConfig.key !== columnKey) return <span className="text-gray-300 ml-1">↕</span>;
-            return sortConfig.direction === 'asc' ? <span className="text-blue-600 ml-1">▲</span> : <span className="text-blue-600 ml-1">▼</span>;
-        };
-
-        // --- Main App Component ---
-        const App = () => {
-            const [selectedYear, setSelectedYear] = useState(2568);
-            const [selectedBureau, setSelectedBureau] = useState('All');
-            const [appData, setAppData] = useState(mockData);
-            const [isFetching, setIsFetching] = useState(false);
-            const [sortConfig1, setSortConfig1] = useState({ key: 'currentTotal', direction: 'desc' });
-            const [sortConfig2, setSortConfig2] = useState({ key: 'total', direction: 'desc' });
-            const [tableViewMode, setTableViewMode] = useState('bureau');
-            
-            // New States for History View
-            const [historyViewType, setHistoryViewType] = useState('bureau'); // 'bureau' or 'offense'
-            const [selectedOffenseHistory, setSelectedOffenseHistory] = useState('o1');
-
-            useEffect(() => {
-                if (selectedBureau !== 'All') setTableViewMode('division');
-                else setTableViewMode('bureau');
-            }, [selectedBureau]);
-
-            const SHEET_API_URL = "https://script.google.com/macros/s/AKfycbyK-MlWk5QZIGVyc2_a0AgAbpvhkGwUjIaNzlJ4enHapm81cJiR45LUpFcg82BiyB9w/exec";
-
-            const fetchDataFromSheet = async () => {
-                setIsFetching(true);
-                try {
-                    const response = await fetch(SHEET_API_URL);
-                    const result = await response.json();
-                    if (result && !result.error && result.length > 0) {
-                        setAppData(result);
-                        const maxYear = Math.max(...result.map(d => Number(d.year)));
-                        if(maxYear) setSelectedYear(maxYear);
-                        setSelectedBureau('All');
-                    }
-                } catch (error) {
-                    console.error("Fetch error:", error);
-                } finally {
-                    setIsFetching(false);
-                }
-            };
-
-            useEffect(() => { fetchDataFromSheet(); }, []);
-
-            const availableYears = useMemo(() => {
-                const years = [...new Set(appData.map(d => Number(d.year)))].filter(y => y > 0).sort((a,b) => b - a);
-                return years.length ? years : [2568, 2567, 2566];
-            }, [appData]);
-
-            const availableBureaus = useMemo(() => ["All", ...[...new Set(appData.map(d => d.bureau))].filter(Boolean).sort()], [appData]);
-            const availableDivisions = useMemo(() => [...new Set(appData.filter(d => Number(d.year) === selectedYear).map(d => d.division))].filter(Boolean).sort(), [appData, selectedYear]);
-            
-            const [radarArea1, setRadarArea1] = useState("");
-            const [radarArea2, setRadarArea2] = useState("");
-            
-            useEffect(() => {
-                if (availableDivisions.length >= 2) {
-                    setRadarArea1(availableDivisions[0]);
-                    setRadarArea2(availableDivisions[1]);
-                }
-            }, [availableDivisions]);
-
-            // --- Historical Timeline Logic ---
-            const timelineData = useMemo(() => {
-                if (historyViewType === 'bureau') {
-                    // Group by Year for selected Bureau
-                    const baseData = selectedBureau === 'All' ? appData : appData.filter(d => d.bureau === selectedBureau);
-                    const yearMap = {};
-                    baseData.forEach(row => {
-                        const y = Number(row.year);
-                        if (!yearMap[y]) {
-                            yearMap[y] = { year: y, total: 0, offenses: {} };
-                            Object.keys(offenseLabels).forEach(k => yearMap[y].offenses[k] = 0);
-                        }
-                        const rTotal = Object.keys(offenseLabels).reduce((s, k) => s + (Number(row[k])||0), 0);
-                        yearMap[y].total += rTotal;
-                        Object.keys(offenseLabels).forEach(k => yearMap[y].offenses[k] += (Number(row[k])||0));
-                    });
-                    return Object.values(yearMap).sort((a, b) => b.year - a.year);
-                } else {
-                    // Group by Year for selected Offense, column by Bureau
-                    const yearMap = {};
-                    appData.forEach(row => {
-                        const y = Number(row.year);
-                        const b = row.bureau;
-                        const val = Number(row[selectedOffenseHistory]) || 0;
-                        if (!yearMap[y]) {
-                            yearMap[y] = { year: y, total: 0, bureauVals: {} };
-                        }
-                        if (!yearMap[y].bureauVals[b]) yearMap[y].bureauVals[b] = 0;
-                        yearMap[y].bureauVals[b] += val;
-                        yearMap[y].total += val;
-                    });
-                    return Object.values(yearMap).sort((a, b) => b.year - a.year);
-                }
-            }, [appData, selectedBureau, historyViewType, selectedOffenseHistory]);
-
-            // --- 1. Storytelling & Anomaly Detection ---
-            const insights = useMemo(() => {
-                const currentData = appData.filter(d => Number(d.year) === selectedYear && (selectedBureau === 'All' || d.bureau === selectedBureau));
-                const totalCurrent = currentData.reduce((sum, row) => sum + Object.keys(offenseLabels).reduce((s, k) => s + (Number(row[k])||0), 0), 0);
-                const totalsByKey = Object.keys(offenseLabels).map(key => ({
-                    key, name: offenseLabels[key], 
-                    val: currentData.reduce((sum, row) => sum + (Number(row[key])||0), 0)
-                })).sort((a, b) => b.val - a.val);
+        const animateValue = (obj, start, end, duration) => {
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                const easeOut = 1 - Math.pow(1 - progress, 4);
+                let currentVal = Math.floor(easeOut * (end - start) + start);
                 
-                const topOffense = totalsByKey[0];
-                const topPercent = totalCurrent > 0 ? ((topOffense.val / totalCurrent) * 100).toFixed(1) : 0;
+                if(end % 1 !== 0) obj.innerHTML = (easeOut * (end - start) + start).toFixed(2);
+                else obj.innerHTML = formatNum(currentVal);
 
-                const anomalies = [];
-                currentData.forEach(row => {
-                    const avgData = appData.filter(d => d.division === row.division && Number(d.year) <= selectedYear && Number(d.year) > selectedYear - 3);
-                    Object.keys(offenseLabels).forEach(k => {
-                        const count = Number(row[k]) || 0;
-                        if (count > 100) {
-                            const avgCount = avgData.reduce((s, d) => s + (Number(d[k])||0), 0) / (avgData.length || 1);
-                            if (avgCount > 50 && count > avgCount * 1.5) {
-                                const increase = (((count - avgCount) / avgCount) * 100).toFixed(0);
-                                anomalies.push({ division: row.division, offense: offenseLabels[k], increase, count });
-                            }
-                        }
-                    });
-                });
-                anomalies.sort((a, b) => b.increase - a.increase);
-
-                return { totalCurrent, topOffense, topPercent, anomalies: anomalies.slice(0, 3) };
-            }, [appData, selectedYear, selectedBureau]);
-
-            // --- 2. Pareto Analysis (80/20) ---
-            const paretoData = useMemo(() => {
-                const currentData = appData.filter(d => Number(d.year) === selectedYear && (selectedBureau === 'All' || d.bureau === selectedBureau));
-                let totals = Object.keys(offenseLabels).map(key => ({
-                    name: offenseLabels[key],
-                    value: currentData.reduce((sum, row) => sum + (Number(row[key])||0), 0)
-                })).sort((a, b) => b.value - a.value);
-
-                const sumAll = totals.reduce((s, i) => s + i.value, 0);
-                let runningSum = 0;
-                return totals.map(item => {
-                    runningSum += item.value;
-                    return { ...item, cumulativePercent: sumAll > 0 ? ((runningSum / sumAll) * 100).toFixed(2) : 0 };
-                });
-            }, [appData, selectedYear, selectedBureau]);
-
-            // --- 3. Correlation Analysis ---
-            const correlationData = useMemo(() => {
-                const currentData = appData.filter(d => Number(d.year) === selectedYear);
-                if(currentData.length < 3) return null;
-
-                const keys = Object.keys(offenseLabels);
-                let bestPair = { k1: '', k2: '', r: -1, points: [] };
-
-                const getPearson = (arrX, arrY) => {
-                    let n = arrX.length, sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
-                    for(let i=0; i<n; i++) {
-                        sumX += arrX[i]; sumY += arrY[i]; sumXY += arrX[i]*arrY[i];
-                        sumX2 += arrX[i]*arrX[i]; sumY2 += arrY[i]*arrY[i];
-                    }
-                    const num = (n * sumXY) - (sumX * sumY);
-                    const den = Math.sqrt(((n * sumX2) - (sumX * sumX)) * ((n * sumY2) - (sumY * sumY)));
-                    return den === 0 ? 0 : num / den;
-                };
-
-                for(let i=0; i<keys.length; i++) {
-                    for(let j=i+1; j<keys.length; j++) {
-                        const arrX = currentData.map(d => Number(d[keys[i]])||0);
-                        const arrY = currentData.map(d => Number(d[keys[j]])||0);
-                        const r = getPearson(arrX, arrY);
-                        if(r > bestPair.r && r < 0.99) {
-                            bestPair = { 
-                                k1: keys[i], k2: keys[j], r,
-                                points: currentData.map(d => ({ x: Number(d[keys[i]])||0, y: Number(d[keys[j]])||0, division: d.division }))
-                            };
-                        }
-                    }
-                }
-                return bestPair.r > 0.5 ? {
-                    xLabel: offenseLabels[bestPair.k1], yLabel: offenseLabels[bestPair.k2],
-                    rScore: (bestPair.r * 100).toFixed(0), points: bestPair.points
-                } : null;
-            }, [appData, selectedYear]);
-
-            // --- 4. Radar Data ---
-            const radarChartData = useMemo(() => {
-                const d1 = appData.find(d => Number(d.year) === selectedYear && d.division === radarArea1);
-                const d2 = appData.find(d => Number(d.year) === selectedYear && d.division === radarArea2);
-                if(!d1 || !d2) return null;
-                const getPercents = (row) => {
-                    const total = Object.keys(offenseLabels).reduce((s, k) => s + (Number(row[k])||0), 0);
-                    return Object.keys(offenseLabels).map(k => total === 0 ? 0 : ((Number(row[k])||0) / total) * 100);
-                };
-                return { dataset1: getPercents(d1), dataset2: getPercents(d2) };
-            }, [appData, selectedYear, radarArea1, radarArea2]);
-
-            // --- Tables Data Processing ---
-            const tableData = useMemo(() => {
-                const result = Object.keys(offenseLabels).map(key => {
-                    let curData = appData.filter(d => Number(d.year) === selectedYear);
-                    let preData = appData.filter(d => Number(d.year) === (selectedYear - 1));
-                    let avgData = appData.filter(d => Number(d.year) <= selectedYear && Number(d.year) > selectedYear - 3);
-
-                    if (selectedBureau !== 'All') {
-                        curData = curData.filter(d => d.bureau === selectedBureau);
-                        preData = preData.filter(d => d.bureau === selectedBureau);
-                        avgData = avgData.filter(d => d.bureau === selectedBureau);
-                    }
-
-                    const curTotal = curData.reduce((sum, row) => sum + (Number(row[key]) || 0), 0);
-                    const preTotal = preData.reduce((sum, row) => sum + (Number(row[key]) || 0), 0);
-                    const allTotal = curData.reduce((sum, row) => sum + Object.keys(offenseLabels).reduce((s, k) => s + (Number(row[k]) || 0), 0), 0);
-                    const percentage = allTotal === 0 ? 0 : (curTotal / allTotal) * 100;
-                    const yoy = preTotal > 0 ? ((curTotal - preTotal) / preTotal) * 100 : 0;
-                    const avg3 = avgData.reduce((sum, row) => sum + (Number(row[key]) || 0), 0) / (new Set(avgData.map(d => Number(d.year))).size || 1);
-
-                    return { name: offenseLabels[key], currentTotal: curTotal, percentage, yoy, avg3Years: avg3 };
-                });
-
-                result.sort((a, b) => {
-                    if (a[sortConfig1.key] < b[sortConfig1.key]) return sortConfig1.direction === 'asc' ? -1 : 1;
-                    if (a[sortConfig1.key] > b[sortConfig1.key]) return sortConfig1.direction === 'asc' ? 1 : -1;
-                    return 0;
-                });
-                return result;
-            }, [selectedYear, selectedBureau, appData, sortConfig1]);
-
-            const bureauDivisionData = useMemo(() => {
-                let filtered = appData.filter(d => Number(d.year) === selectedYear);
-                if (selectedBureau !== 'All') filtered = filtered.filter(d => d.bureau === selectedBureau);
-
-                const grouped = {};
-                filtered.forEach(row => {
-                    const groupKey = tableViewMode === 'bureau' ? row.bureau : row.division;
-                    if (!grouped[groupKey]) {
-                        grouped[groupKey] = { bureau: row.bureau, division: row.division, groupName: groupKey, total: 0, offenses: {} };
-                        Object.keys(offenseLabels).forEach(k => grouped[groupKey].offenses[k] = 0);
-                    }
-                    const rowTotal = Object.keys(offenseLabels).reduce((sum, key) => sum + (Number(row[key]) || 0), 0);
-                    grouped[groupKey].total += rowTotal;
-                    Object.keys(offenseLabels).forEach(key => grouped[groupKey].offenses[key] += (Number(row[key]) || 0));
-                });
-
-                const result = Object.values(grouped).map(item => {
-                    const offPer = {};
-                    Object.keys(offenseLabels).forEach(k => offPer[k] = { count: item.offenses[k], percent: item.total === 0 ? 0 : (item.offenses[k] / item.total) * 100 });
-                    return { ...item, offenses: offPer };
-                });
-
-                result.sort((a, b) => {
-                    let aVal = sortConfig2.key.startsWith('o') ? a.offenses[sortConfig2.key].count : (sortConfig2.key === 'groupName' ? a.groupName : a[sortConfig2.key]);
-                    let bVal = sortConfig2.key.startsWith('o') ? b.offenses[sortConfig2.key].count : (sortConfig2.key === 'groupName' ? b.groupName : b[sortConfig2.key]);
-                    if (typeof aVal === 'string' && typeof bVal === 'string') return sortConfig2.direction === 'asc' ? aVal.localeCompare(bVal, 'th') : bVal.localeCompare(aVal, 'th');
-                    return sortConfig2.direction === 'asc' ? aVal - bVal : bVal - aVal;
-                });
-                return result;
-            }, [selectedYear, selectedBureau, appData, sortConfig2, tableViewMode]);
-
-            const exportCSV = () => {
-                const BOM = "\uFEFF";
-                const headers = tableViewMode === 'bureau' ? ["บช.", "ยอดรวม", ...Object.values(offenseLabels)] : ["บช.", "ภ.จว.", "ยอดรวม", ...Object.values(offenseLabels)];
-                const rows = bureauDivisionData.map(r => tableViewMode === 'bureau' ? [r.groupName, r.total, ...Object.keys(offenseLabels).map(k => r.offenses[k].count)] : [r.bureau, r.groupName, r.total, ...Object.keys(offenseLabels).map(k => r.offenses[k].count)]);
-                const blob = new Blob([BOM + [headers.join(","), ...rows.map(e => e.join(","))].join("\n")], { type: 'text/csv;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement("a"); link.href = url; link.download = `Data_${selectedYear}.csv`; link.click();
+                if (progress < 1) window.requestAnimationFrame(step);
+                else obj.innerHTML = end % 1 !== 0 ? end.toFixed(2) : formatNum(end);
             };
+            window.requestAnimationFrame(step);
+        }
 
-            const formatNumber = (num) => new Intl.NumberFormat('th-TH').format(Math.round(num));
+        async function loadData() {
+            try {
+                const res = await fetch(APPS_SCRIPT_URL);
+                const json = await res.json();
+                if(json.status === 'success') {
+                    rawData = json.data;
+                    document.getElementById('connection-status-dot').className = "w-2 h-2 rounded-full bg-success";
+                    document.getElementById('connection-status-text').innerText = "เชื่อมต่อฐานข้อมูลเรียบร้อย";
+                } else throw new Error();
+            } catch (error) {
+                rawData = MOCK_DATA;
+                document.getElementById('connection-status-dot').className = "w-2 h-2 rounded-full bg-danger";
+                document.getElementById('connection-status-text').innerText = "ทำงานแบบออฟไลน์ (ข้อมูลจำลอง)";
+            }
 
-            return (
-                <div className="min-h-screen">
-                    <nav className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
-                        <div className="max-w-7xl mx-auto px-4 h-16 flex justify-between items-center">
-                            <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">ก</div>
-                                <span className="font-bold text-gray-800 hidden sm:block">การบังคับใช้กฎหมาย 10 ข้อหาหลัก</span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <button onClick={exportCSV} className="bg-gray-800 text-white px-3 py-2 rounded text-sm hover:bg-gray-900 transition flex items-center space-x-1">
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                                    <span className="hidden md:inline">Export</span>
-                                </button>
-                                <button onClick={fetchDataFromSheet} className="bg-emerald-600 text-white px-3 py-2 rounded text-sm hover:bg-emerald-700 transition">Sync</button>
-                                <select className="border border-gray-300 rounded px-2 py-2 text-sm" value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))}>
-                                    {availableYears.map(y => <option key={y} value={y}>ปี {y}</option>)}
-                                </select>
-                                <select className="border border-gray-300 rounded px-2 py-2 text-sm" value={selectedBureau} onChange={e => setSelectedBureau(e.target.value)}>
-                                    {availableBureaus.map(b => <option key={b} value={b}>{b === "All" ? "ทุก บช." : b}</option>)}
-                                </select>
-                            </div>
-                        </div>
-                    </nav>
+            document.getElementById('loading-overlay').style.opacity = '0';
+            setTimeout(() => document.getElementById('loading-overlay').style.display = 'none', 500);
 
-                    <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
-                        {/* Summary & Alerts */}
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            <div className="lg:col-span-2 glass-panel p-6 rounded-2xl border border-blue-100 shadow-sm flex space-x-4">
-                                <div className="p-4 bg-blue-100 text-blue-600 rounded-full h-fit">AI</div>
-                                <div>
-                                    <h3 className="font-bold text-gray-800 text-lg">บทสรุปผู้บริหาร</h3>
-                                    <p className="text-gray-600 mt-2">ในปี {selectedYear} {selectedBureau === 'All' ? 'ภาพรวม' : selectedBureau} มีคดีรวม <b className="text-blue-600">{formatNumber(insights.totalCurrent)}</b> รายการ โดยข้อหา <b>"{insights.topOffense?.name}"</b> มีสัดส่วนสูงสุดที่ <b>{insights.topPercent}%</b></p>
-                                </div>
-                            </div>
-                            <div className="bg-red-50 p-6 rounded-2xl border border-red-100 shadow-sm">
-                                <h3 className="font-bold text-red-800 flex items-center mb-4">แจ้งเตือนยอดพุ่งผิดปกติ</h3>
-                                {insights.anomalies.length ? (
-                                    <ul className="space-y-2">
-                                        {insights.anomalies.map((a, i) => <li key={i} className="text-sm flex justify-between bg-white p-2 rounded border border-red-200"><span><b>{a.division}</b>: {a.offense}</span> <b className="text-red-600">+{a.increase}%</b></li>)}
-                                    </ul>
-                                ) : <p className="text-sm text-green-700">ปกติ ไม่พบความผิดปกติ</p>}
-                            </div>
-                        </div>
+            initFilters();
+            applyFilters();
+        }
 
-                        {/* Analysis Charts */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-80">
-                                <h3 className="font-bold text-gray-800 mb-4">กฎ 80/20 (Pareto Analysis)</h3>
-                                <ParetoChart data={paretoData} />
-                            </div>
-                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-80">
-                                <h3 className="font-bold text-gray-800 mb-4">วิเคราะห์ความสัมพันธ์ (Correlation)</h3>
-                                {correlationData && <CorrelationChart data={correlationData} />}
-                            </div>
-                        </div>
+        function initFilters() {
+            const elYear = document.getElementById('filter-year');
+            const elBureau = document.getElementById('filter-bureau');
+            const years = [...new Set(rawData.map(i => i['ปี พ.ศ.']))].filter(Boolean).sort((a,b) => b-a);
+            const bureaus = [...new Set(rawData.map(i => i['บช.']))].filter(Boolean).sort();
+            years.forEach(y => elYear.add(new Option(y, y)));
+            bureaus.forEach(b => elBureau.add(new Option(b, b)));
+            elYear.addEventListener('change', applyFilters);
+            elBureau.addEventListener('change', applyFilters);
+        }
 
-                        {/* Radar Comparison */}
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className="font-bold text-gray-800">เปรียบเทียบ Profile พฤติกรรม (%)</h3>
-                                <div className="flex space-x-2">
-                                    <select className="text-xs border rounded p-1" value={radarArea1} onChange={e=>setRadarArea1(e.target.value)}>{availableDivisions.map(d=><option key={d} value={d}>{d}</option>)}</select>
-                                    <select className="text-xs border rounded p-1" value={radarArea2} onChange={e=>setRadarArea2(e.target.value)}>{availableDivisions.map(d=><option key={d} value={d}>{d}</option>)}</select>
-                                </div>
-                            </div>
-                            <div className="h-96"><RadarChart data={radarChartData} label1={radarArea1} label2={radarArea2} /></div>
-                        </div>
+        function applyFilters() {
+            const y = document.getElementById('filter-year').value;
+            const b = document.getElementById('filter-bureau').value;
+            filteredData = rawData.filter(item => (y === 'All' || String(item['ปี พ.ศ.']) === y) && (b === 'All' || item['บช.'] === b));
+            
+            document.getElementById('table-search').value = ''; 
+            
+            updateStats();
+            updateCharts();
+            renderTable(filteredData);
+            generateAIInsights();
+        }
 
-                        {/* Historical Timeline Table */}
-                        <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 overflow-hidden">
-                            <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-white flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
-                                <div>
-                                    <h3 className="font-bold text-indigo-900 text-lg">วิเคราะห์แนวโน้มย้อนหลังทุกปี (Historical Timeline)</h3>
-                                    <p className="text-xs text-indigo-600">แสดงข้อมูลเปรียบเทียบตามช่วงเวลาสำหรับหน่วยงานหรือข้อหาที่เลือก</p>
-                                </div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <div className="flex bg-indigo-100 p-1 rounded-lg">
-                                        <button 
-                                            onClick={() => setHistoryViewType('bureau')} 
-                                            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition ${historyViewType === 'bureau' ? 'bg-white text-indigo-700 shadow-sm' : 'text-indigo-500'}`}
-                                        >
-                                            ราย บช.
-                                        </button>
-                                        <button 
-                                            onClick={() => setHistoryViewType('offense')} 
-                                            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition ${historyViewType === 'offense' ? 'bg-white text-indigo-700 shadow-sm' : 'text-indigo-500'}`}
-                                        >
-                                            รายข้อหา
-                                        </button>
-                                    </div>
-                                    {historyViewType === 'offense' && (
-                                        <select 
-                                            className="text-xs border border-indigo-200 rounded p-1.5 bg-white text-indigo-700 font-medium"
-                                            value={selectedOffenseHistory}
-                                            onChange={e => setSelectedOffenseHistory(e.target.value)}
-                                        >
-                                            {Object.keys(offenseLabels).map(k => <option key={k} value={k}>{offenseLabels[k]}</option>)}
-                                        </select>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="overflow-x-auto custom-scrollbar max-h-[500px]">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50 sticky top-0 z-10">
-                                        {historyViewType === 'bureau' ? (
-                                            <tr>
-                                                <th className="px-6 py-3 text-left text-[11px] font-bold text-indigo-900 uppercase border-r bg-indigo-50">ปี พ.ศ.</th>
-                                                <th className="px-6 py-3 text-right text-[11px] font-bold text-indigo-900 uppercase border-r bg-indigo-50/50">รวมทั้งหมด</th>
-                                                {Object.keys(offenseLabels).map(k => (
-                                                    <th key={k} className="px-6 py-3 text-right text-[11px] font-bold text-gray-600 uppercase min-w-[120px]">{offenseLabels[k]}</th>
-                                                ))}
-                                            </tr>
-                                        ) : (
-                                            <tr>
-                                                <th className="px-6 py-3 text-left text-[11px] font-bold text-indigo-900 uppercase border-r bg-indigo-50">ปี พ.ศ.</th>
-                                                <th className="px-6 py-3 text-right text-[11px] font-bold text-indigo-900 uppercase border-r bg-indigo-50/50">ยอดรวมข้อหา</th>
-                                                {availableBureaus.filter(b => b !== 'All').map(b => (
-                                                    <th key={b} className="px-6 py-3 text-right text-[11px] font-bold text-gray-600 uppercase min-w-[100px]">{b}</th>
-                                                ))}
-                                            </tr>
-                                        )}
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100">
-                                        {timelineData.map((row, idx) => (
-                                            <tr key={idx} className="hover:bg-indigo-50 transition">
-                                                <td className="px-6 py-4 text-sm font-bold text-indigo-800 border-r bg-indigo-50/20">{row.year}</td>
-                                                <td className="px-6 py-4 text-sm text-right font-black text-indigo-700 border-r bg-indigo-50/10">{formatNumber(row.total)}</td>
-                                                {historyViewType === 'bureau' ? (
-                                                    Object.keys(offenseLabels).map(k => (
-                                                        <td key={k} className="px-6 py-4 text-sm text-right text-gray-700 font-medium">{formatNumber(row.offenses[k])}</td>
-                                                    ))
-                                                ) : (
-                                                    availableBureaus.filter(b => b !== 'All').map(b => (
-                                                        <td key={b} className="px-6 py-4 text-sm text-right text-gray-700 font-medium">{formatNumber(row.bureauVals[b] || 0)}</td>
-                                                    ))
-                                                )}
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+        function updateStats() {
+            const t = filteredData.reduce((s, i) => s + (Number(i['จำนวนใบสั่งทั้งหมด']) || 0), 0);
+            const p = filteredData.reduce((s, i) => s + (Number(i['จำนวนใบสั่งที่ชำระแล้ว']) || 0), 0);
+            const u = filteredData.reduce((s, i) => s + (Number(i['จำนวนใบสั่งที่ยังไม่ชำระ']) || 0), 0);
+            const pct = t > 0 ? (p / t) * 100 : 0;
 
-                        {/* Comparison Table */}
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                                <h3 className="font-bold text-gray-800">ตารางวิเคราะห์เปรียบเทียบเชิงลึก (รายข้อหา ปี {selectedYear})</h3>
-                                <div className="text-[10px] text-gray-400">เปรียบเทียบข้อมูล YoY และค่าเฉลี่ย 3 ปี</div>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase cursor-pointer" onClick={()=>setSortConfig1({key:'name', direction: sortConfig1.direction==='asc'?'desc':'asc'})}>ฐานความผิด <SortIcon columnKey="name" sortConfig={sortConfig1}/></th>
-                                            <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase cursor-pointer" onClick={()=>setSortConfig1({key:'currentTotal', direction: sortConfig1.direction==='asc'?'desc':'asc'})}>จำนวน <SortIcon columnKey="currentTotal" sortConfig={sortConfig1}/></th>
-                                            <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase cursor-pointer" onClick={()=>setSortConfig1({key:'percentage', direction: sortConfig1.direction==='asc'?'desc':'asc'})}>สัดส่วน (%) <SortIcon columnKey="percentage" sortConfig={sortConfig1}/></th>
-                                            <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase cursor-pointer" onClick={()=>setSortConfig1({key:'yoy', direction: sortConfig1.direction==='asc'?'desc':'asc'})}>YoY <SortIcon columnKey="yoy" sortConfig={sortConfig1}/></th>
-                                            <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase cursor-pointer" onClick={()=>setSortConfig1({key:'avg3Years', direction: sortConfig1.direction==='asc'?'desc':'asc'})}>เฉลี่ย 3 ปี <SortIcon columnKey="avg3Years" sortConfig={sortConfig1}/></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100">
-                                        {tableData.map((row, i) => (
-                                            <tr key={i} className="hover:bg-gray-50 transition">
-                                                <td className="px-6 py-4 text-sm font-medium text-gray-800">{row.name}</td>
-                                                <td className="px-6 py-4 text-sm text-right font-bold">{formatNumber(row.currentTotal)}</td>
-                                                <td className="px-6 py-4 text-sm text-right">{row.percentage.toFixed(2)}%</td>
-                                                <td className={`px-6 py-4 text-sm text-right font-bold ${row.yoy > 0 ? 'text-red-500' : 'text-emerald-500'}`}>{row.yoy > 0 ? '+' : ''}{row.yoy.toFixed(1)}%</td>
-                                                <td className="px-6 py-4 text-sm text-right text-gray-500">{formatNumber(row.avg3Years)}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+            animateValue(document.getElementById('stat-total'), 0, t, 800);
+            animateValue(document.getElementById('stat-paid'), 0, p, 800);
+            animateValue(document.getElementById('stat-unpaid'), 0, u, 800);
+            animateValue(document.getElementById('stat-percent'), 0, pct, 800);
 
-                        {/* Raw Data Table */}
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                            <div className="px-6 py-5 border-b border-gray-100 bg-gray-50 flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
-                                <h3 className="font-bold text-gray-800">ข้อมูลแจกแจงรายหน่วยงาน (Raw Data)</h3>
-                                <div className="flex bg-gray-200 p-1 rounded-lg">
-                                    <button onClick={() => setTableViewMode('bureau')} className={`px-4 py-1.5 text-xs font-medium rounded-md transition ${tableViewMode === 'bureau' ? 'bg-white shadow-sm' : 'text-gray-500'}`}>บช.</button>
-                                    <button onClick={() => setTableViewMode('division')} className={`px-4 py-1.5 text-xs font-medium rounded-md transition ${tableViewMode === 'division' ? 'bg-white shadow-sm' : 'text-gray-500'}`}>ภ.จว.</button>
-                                </div>
-                            </div>
-                            <div className="overflow-x-auto max-h-96 custom-scrollbar">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50 sticky top-0">
-                                        <tr>
-                                            {tableViewMode === 'division' && <th className="px-6 py-3 text-left text-[10px] font-bold text-gray-500 uppercase border-r" onClick={()=>setSortConfig2({key:'bureau', direction: sortConfig2.direction==='asc'?'desc':'asc'})}>บช.</th>}
-                                            <th className="px-6 py-3 text-left text-[10px] font-bold text-gray-500 uppercase border-r" onClick={()=>setSortConfig2({key:'groupName', direction: sortConfig2.direction==='asc'?'desc':'asc'})}>{tableViewMode === 'bureau' ? 'บช.' : 'บก./ภ.จว.'}</th>
-                                            <th className="px-6 py-3 text-right text-[10px] font-bold text-blue-700 uppercase border-r bg-blue-50" onClick={()=>setSortConfig2({key:'total', direction: sortConfig2.direction==='asc'?'desc':'asc'})}>ยอดรวม</th>
-                                            {Object.keys(offenseLabels).map(k => <th key={k} className="px-6 py-3 text-right text-[10px] font-bold text-gray-500 uppercase min-w-[120px] hover:bg-gray-100 cursor-pointer" onClick={()=>setSortConfig2({key:k, direction: sortConfig2.direction==='asc'?'desc':'asc'})}>{offenseLabels[k]}</th>)}
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100">
-                                        {bureauDivisionData.map((row, i) => (
-                                            <tr key={i} className="hover:bg-blue-50 transition">
-                                                {tableViewMode === 'division' && <td className="px-6 py-3 text-xs border-r">{row.bureau}</td>}
-                                                <td className={`px-6 py-3 text-xs border-r ${tableViewMode === 'bureau' ? 'font-bold' : ''}`}>{row.groupName}</td>
-                                                <td className="px-6 py-3 text-xs text-right font-bold text-blue-700 bg-blue-50/20 border-r">{formatNumber(row.total)}</td>
-                                                {Object.keys(offenseLabels).map(k => (
-                                                    <td key={k} className="px-6 py-3 text-right">
-                                                        <div className="text-xs font-semibold">{formatNumber(row.offenses[k].count)}</div>
-                                                        <div className="text-[9px] text-gray-400">{row.offenses[k].percent.toFixed(1)}%</div>
-                                                    </td>
-                                                ))}
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </main>
-                </div>
-            );
-        };
+            document.getElementById('bar-paid-percent').style.width = `${pct}%`;
+            document.getElementById('bar-unpaid-percent').style.width = `${100 - pct}%`;
+        }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        function generateAIInsights() {
+            if (filteredData.length === 0) {
+                document.getElementById('ai-summary-text').innerHTML = "ไม่มีข้อมูลในเงื่อนไขที่เลือก";
+                return;
+            }
+
+            const total = filteredData.reduce((s, i) => s + (Number(i['จำนวนใบสั่งทั้งหมด']) || 0), 0);
+            const paid = filteredData.reduce((s, i) => s + (Number(i['จำนวนใบสั่งที่ชำระแล้ว']) || 0), 0);
+            const pct = total > 0 ? ((paid/total)*100).toFixed(1) : 0;
+            
+            const bGroup = {};
+            filteredData.forEach(i => {
+                const b = i['บช.'] || 'N/A';
+                if(!bGroup[b]) bGroup[b] = 0;
+                bGroup[b] += Number(i['จำนวนใบสั่งที่ยังไม่ชำระ']) || 0;
+            });
+            const topDefaulter = Object.entries(bGroup).sort((a,b) => b[1] - a[1])[0];
+
+            let text = `ภาพรวมระบบพบว่าอัตราการชำระเงินสำเร็จอยู่ที่ <span class="text-textMain font-semibold">${pct}%</span> `;
+            if(topDefaulter && topDefaulter[1] > 0) {
+                text += `โดย <span class="text-danger font-semibold">หน่วย ${topDefaulter[0]}</span> มียอดค้างชำระสะสมสูงสุดที่ ${formatNum(topDefaulter[1])} รายการ สมควรพิจารณามาตรการเร่งรัดติดตาม`;
+            } else {
+                text += `สถานการณ์ปกติ ไม่พบยอดคงค้างที่ต้องเฝ้าระวังเป็นพิเศษ`;
+            }
+
+            document.getElementById('ai-summary-text').innerHTML = text;
+        }
+
+        function filterTable() {
+            const input = document.getElementById('table-search').value.toLowerCase();
+            const searchedData = filteredData.filter(row => {
+                return String(row['ปี พ.ศ.']).toLowerCase().includes(input) || 
+                       String(row['บช.']).toLowerCase().includes(input) || 
+                       String(row['บก./ภ.จว.']).toLowerCase().includes(input);
+            });
+            renderTable(searchedData);
+        }
+
+        function renderTable(dataToRender) {
+            const elBody = document.getElementById('table-body');
+            const grouped = {};
+            dataToRender.forEach(row => {
+                const key = row['ปี พ.ศ.'] + '-' + row['บช.'];
+                if(!grouped[key]) grouped[key] = { year: row['ปี พ.ศ.'], bureau: row['บช.'], total:0, paid:0, unpaid:0 };
+                grouped[key].total += Number(row['จำนวนใบสั่งทั้งหมด']) || 0;
+                grouped[key].paid += Number(row['จำนวนใบสั่งที่ชำระแล้ว']) || 0;
+                grouped[key].unpaid += Number(row['จำนวนใบสั่งที่ยังไม่ชำระ']) || 0;
+            });
+
+            const displayData = Object.values(grouped).sort((a,b) => b.year - a.year || a.bureau.localeCompare(b.bureau)).slice(0, 50);
+
+            if(displayData.length === 0) {
+                elBody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-textMuted">ไม่พบข้อมูล</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            displayData.forEach(row => {
+                const pctPaid = row.total > 0 ? ((row.paid / row.total) * 100).toFixed(1) : "0.0";
+                const pctUnpaid = row.total > 0 ? ((row.unpaid / row.total) * 100).toFixed(1) : "0.0";
+
+                html += `
+                    <tr>
+                        <td class="p-4 pl-6 font-semibold">${row.year}</td>
+                        <td class="p-4">${row.bureau}</td>
+                        <td class="p-4 text-right font-medium">${formatNum(row.total)}</td>
+                        <td class="p-4 text-right">
+                            <div class="font-semibold text-success">${formatNum(row.paid)}</div>
+                            <div class="text-xs text-textMuted mt-0.5">(${pctPaid}%)</div>
+                        </td>
+                        <td class="p-4 text-right pr-6">
+                            <div class="font-semibold text-danger">${formatNum(row.unpaid)}</div>
+                            <div class="text-xs text-textMuted mt-0.5">(${pctUnpaid}%)</div>
+                        </td>
+                    </tr>
+                `;
+            });
+            elBody.innerHTML = html;
+        }
+
+        function updateCharts() {
+            // Data Prep - Bar Chart
+            const yearGroup = {};
+            filteredData.forEach(i => {
+                const y = i['ปี พ.ศ.'] || 'N/A';
+                if(!yearGroup[y]) yearGroup[y] = { paid: 0, unpaid: 0 };
+                yearGroup[y].paid += Number(i['จำนวนใบสั่งที่ชำระแล้ว']) || 0;
+                yearGroup[y].unpaid += Number(i['จำนวนใบสั่งที่ยังไม่ชำระ']) || 0;
+            });
+            const categories = Object.keys(yearGroup).sort();
+            const seriesPaid = categories.map(c => yearGroup[c].paid);
+            const seriesUnpaid = categories.map(c => yearGroup[c].unpaid);
+
+            // Data Prep - Donut Chart
+            const bGroup = {};
+            filteredData.forEach(i => {
+                const b = i['บช.'] || 'N/A';
+                if(!bGroup[b]) bGroup[b] = 0;
+                bGroup[b] += Number(i['จำนวนใบสั่งที่ยังไม่ชำระ']) || 0; 
+            });
+            const sortedB = Object.entries(bGroup).sort((a,b) => b[1] - a[1]).slice(0, 5);
+            const donutLabels = sortedB.map(i => i[0]);
+            const donutSeries = sortedB.map(i => i[1]);
+
+            const comOpts = { chart: { fontFamily: 'Prompt, sans-serif', toolbar: { show: false }, background: 'transparent' }, theme: { mode: 'dark' } };
+
+            // Bar Chart Config
+            if(!barChartInstance) {
+                const barOpts = {
+                    ...comOpts,
+                    series: [{ name: 'ชำระแล้ว', data: seriesPaid }, { name: 'ค้างชำระ', data: seriesUnpaid }],
+                    chart: { ...comOpts.chart, type: 'bar', height: '100%', stacked: true },
+                    colors: [colors.success, colors.danger],
+                    plotOptions: { bar: { columnWidth: '35%', borderRadius: 4 } },
+                    dataLabels: { 
+                        enabled: true, 
+                        formatter: (val) => val > 500000 ? (val/1000000).toFixed(1) + 'M' : '',
+                        style: { colors: ['#fff'], fontSize: '12px' },
+                        dropShadow: { enabled: false }
+                    },
+                    grid: { borderColor: colors.border, strokeDashArray: 4 },
+                    stroke: { width: 0 },
+                    xaxis: { categories: categories, axisBorder: { show: false }, axisTicks: { show: false }, labels: { style: { colors: colors.textMuted } } },
+                    yaxis: { labels: { formatter: (val) => (val/1000000).toFixed(1) + 'M', style: { colors: colors.textMuted } } },
+                    legend: { position: 'top', horizontalAlign: 'right', labels: { colors: colors.textMuted } },
+                    tooltip: { y: { formatter: (val) => formatNum(val) + " รายการ" } }
+                };
+                barChartInstance = new ApexCharts(document.querySelector("#chart-bar"), barOpts);
+                barChartInstance.render();
+            } else {
+                barChartInstance.updateOptions({ xaxis: { categories: categories } });
+                barChartInstance.updateSeries([{ data: seriesPaid }, { data: seriesUnpaid }]);
+            }
+
+            // Donut Chart Config (Updated to show Commas and Percentages)
+            if(!donutChartInstance) {
+                const donOpts = {
+                    ...comOpts,
+                    series: donutSeries,
+                    chart: { ...comOpts.chart, type: 'donut', height: '100%' },
+                    labels: donutLabels,
+                    colors: ['#EF4444', '#F87171', '#FCA5A5', '#FECACA', '#FEE2E2'], // Red gradients
+                    plotOptions: { 
+                        pie: { 
+                            donut: { 
+                                size: '70%', 
+                                labels: { 
+                                    show: true, 
+                                    name: { color: colors.textMuted, fontSize: '14px' }, 
+                                    value: { 
+                                        color: '#F8FAFC', 
+                                        fontSize: '24px', 
+                                        fontWeight: 'bold', 
+                                        formatter: (val) => formatNum(val) // ใส่คอมม่าตรงกลาง
+                                    }, 
+                                    total: { 
+                                        show: true, 
+                                        showAlways: true, 
+                                        label: 'ค้างชำระรวม 5 อันดับ', 
+                                        color: colors.textMuted,
+                                        formatter: function (w) {
+                                            const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+                                            return formatNum(total); // ใส่คอมม่ายอดรวม
+                                        }
+                                    } 
+                                } 
+                            } 
+                        } 
+                    },
+                    stroke: { width: 2, colors: [colors.bg] },
+                    dataLabels: { 
+                        enabled: true, // เปิดการแสดงเปอเซ็นต์
+                        formatter: function (val) {
+                            return val.toFixed(1) + "%"; // แสดงเปอเซ็นต์บนกราฟวงกลม
+                        },
+                        style: {
+                            fontSize: '12px',
+                            fontFamily: 'Prompt, sans-serif',
+                            fontWeight: 'bold'
+                        },
+                        dropShadow: { enabled: true, color: '#000', blur: 2, opacity: 0.5 }
+                    },
+                    legend: { position: 'bottom', labels: { colors: colors.textMuted } },
+                    tooltip: { y: { formatter: (val) => formatNum(val) + " รายการ" } }
+                };
+                donutChartInstance = new ApexCharts(document.querySelector("#chart-donut"), donOpts);
+                donutChartInstance.render();
+            } else {
+                donutChartInstance.updateOptions({ labels: donutLabels });
+                donutChartInstance.updateSeries(donutSeries);
+            }
+        }
+
+        function exportToCSV() {
+            if(filteredData.length === 0) return alert("ไม่มีข้อมูลสำหรับการดาวน์โหลด");
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
+            csvContent += "ปี พ.ศ.,บช.,บก./ภ.จว.,จำนวนใบสั่งทั้งหมด,ชำระแล้ว,ยังไม่ชำระ\n";
+            
+            filteredData.forEach(row => {
+                const r = [row['ปี พ.ศ.'], row['บช.'], row['บก./ภ.จว.'], row['จำนวนใบสั่งทั้งหมด'], row['จำนวนใบสั่งที่ชำระแล้ว'], row['จำนวนใบสั่งที่ยังไม่ชำระ']];
+                csvContent += r.join(",") + "\n";
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "rtp_executive_report.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function togglePresentation() {
+            isPresentationMode = !isPresentationMode;
+            if (isPresentationMode) {
+                document.body.classList.add('presentation-mode');
+                document.getElementById('exit-presentation').classList.remove('hidden');
+                setTimeout(() => document.getElementById('exit-presentation').classList.remove('opacity-0'), 50);
+                setTimeout(() => window.dispatchEvent(new Event('resize')), 400);
+            } else {
+                document.body.classList.remove('presentation-mode');
+                document.getElementById('exit-presentation').classList.add('opacity-0');
+                setTimeout(() => {
+                    document.getElementById('exit-presentation').classList.add('hidden');
+                    window.dispatchEvent(new Event('resize'));
+                }, 400);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', loadData);
     </script>
 </body>
 </html>
