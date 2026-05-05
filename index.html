@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบสถิติการบังคับใช้กฎหมาย 10 ข้อหาหลัก</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #f8fafc;
+        }
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .glass-panel {
+            background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%);
+            backdrop-filter: blur(10px);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        const mockData = [
+            { year: 2568, bureau: "บช.ก.", division: "บก.ทล.", o1: 651, o2: 23307, o3: 44, o4: 2135, o5: 34469, o6: 4082030, o7: 1834755, o8: 827, o9: 42, o10: 185 },
+            { year: 2568, bureau: "บช.น.", division: "บก.จร.", o1: 30326, o2: 7913, o3: 1012, o4: 2385, o5: 50436, o6: 59077, o7: 31142, o8: 6418, o9: 2322, o10: 1363 },
+            { year: 2568, bureau: "ภ.7", division: "ภ.จว.นครปฐม", o1: 7602, o2: 16971, o3: 1102, o4: 2187, o5: 20278, o6: 2577, o7: 1817, o8: 2759, o9: 1794, o10: 1633 }
+        ];
+
+        const offenseLabels = {
+            o1: "ไม่สวมหมวกนิรภัย", o2: "มอเตอร์ไซค์ไม่ปลอดภัย", o3: "เมาขับ", 
+            o4: "ไม่คาดเข็มขัดนิรภัย", o5: "ไม่มีใบขับขี่", o6: "ความเร็ว", 
+            o7: "ฝ่าฝืนสัญญาณไฟจราจร", o8: "ย้อนศร", o9: "แซงในที่คับขัน", o10: "ใช้โทรศัพท์"
+        };
+
+        // --- Chart Components ---
+        const ParetoChart = ({ data }) => {
+            const chartRef = useRef(null);
+            const chartInstance = useRef(null);
+            useEffect(() => {
+                if (chartInstance.current) chartInstance.current.destroy();
+                const ctx = chartRef.current.getContext('2d');
+                chartInstance.current = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.map(d => d.name),
+                        datasets: [
+                            {
+                                type: 'line',
+                                label: 'เปอร์เซ็นต์สะสม (%)',
+                                data: data.map(d => d.cumulativePercent),
+                                borderColor: '#ef4444', backgroundColor: '#ef4444',
+                                borderWidth: 2, yAxisID: 'y1', pointRadius: 4
+                            },
+                            {
+                                type: 'bar',
+                                label: 'จำนวนคดี',
+                                data: data.map(d => d.value),
+                                backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                                borderRadius: 4, yAxisID: 'y'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        scales: {
+                            y: { type: 'linear', display: true, position: 'left' },
+                            y1: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false }, max: 100, ticks: { callback: v => v + '%' } },
+                            x: { ticks: { maxRotation: 45, minRotation: 45, font: { size: 10 } } }
+                        }
+                    }
+                });
+                return () => { if (chartInstance.current) chartInstance.current.destroy(); };
+            }, [data]);
+            return <canvas ref={chartRef}></canvas>;
+        };
+
+        const RadarChart = ({ data, label1, label2 }) => {
+            const chartRef = useRef(null);
+            const chartInstance = useRef(null);
+            useEffect(() => {
+                if (!data || data.length === 0) return;
+                if (chartInstance.current) chartInstance.current.destroy();
+                const ctx = chartRef.current.getContext('2d');
+                chartInstance.current = new Chart(ctx, {
+                    type: 'radar',
+                    data: {
+                        labels: Object.values(offenseLabels),
+                        datasets: [
+                            {
+                                label: label1,
+                                data: data.dataset1,
+                                backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                                borderColor: 'rgba(59, 130, 246, 1)',
+                                pointBackgroundColor: 'rgba(59, 130, 246, 1)',
+                            },
+                            {
+                                label: label2,
+                                data: data.dataset2,
+                                backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                                borderColor: 'rgba(239, 68, 68, 1)',
+                                pointBackgroundColor: 'rgba(239, 68, 68, 1)',
+                            }
+                        ]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { r: { ticks: { backdropColor: 'transparent' } } } }
+                });
+                return () => { if (chartInstance.current) chartInstance.current.destroy(); };
+            }, [data, label1, label2]);
+            return <canvas ref={chartRef}></canvas>;
+        };
+
+        const CorrelationChart = ({ data }) => {
+            const chartRef = useRef(null);
+            const chartInstance = useRef(null);
+            useEffect(() => {
+                if (chartInstance.current) chartInstance.current.destroy();
+                const ctx = chartRef.current.getContext('2d');
+                chartInstance.current = new Chart(ctx, {
+                    type: 'scatter',
+                    data: {
+                        datasets: [{
+                            label: 'ความสัมพันธ์รายหน่วยงาน',
+                            data: data.points.map(p => ({ x: p.x, y: p.y, division: p.division })),
+                            backgroundColor: 'rgba(16, 185, 129, 0.6)'
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            tooltip: { callbacks: { label: (ctx) => `${ctx.raw.division}: (${ctx.raw.x}, ${ctx.raw.y})` } }
+                        },
+                        scales: { x: { title: { display: true, text: data.xLabel } }, y: { title: { display: true, text: data.yLabel } } }
+                    }
+                });
+                return () => { if (chartInstance.current) chartInstance.current.destroy(); };
+            }, [data]);
+            return <canvas ref={chartRef}></canvas>;
+        };
+
+        const SortIcon = ({ columnKey, sortConfig }) => {
+            if (sortConfig.key !== columnKey) return <span className="text-gray-300 ml-1">↕</span>;
+            return sortConfig.direction === 'asc' ? <span className="text-blue-600 ml-1">▲</span> : <span className="text-blue-600 ml-1">▼</span>;
+        };
+
+        // --- Main App Component ---
+        const App = () => {
+            const [selectedYear, setSelectedYear] = useState(2568);
+            const [selectedBureau, setSelectedBureau] = useState('All');
+            const [appData, setAppData] = useState(mockData);
+            const [isFetching, setIsFetching] = useState(false);
+            const [sortConfig1, setSortConfig1] = useState({ key: 'currentTotal', direction: 'desc' });
+            const [sortConfig2, setSortConfig2] = useState({ key: 'total', direction: 'desc' });
+            const [tableViewMode, setTableViewMode] = useState('bureau');
+            
+            // New States for History View
+            const [historyViewType, setHistoryViewType] = useState('bureau'); // 'bureau' or 'offense'
+            const [selectedOffenseHistory, setSelectedOffenseHistory] = useState('o1');
+
+            useEffect(() => {
+                if (selectedBureau !== 'All') setTableViewMode('division');
+                else setTableViewMode('bureau');
+            }, [selectedBureau]);
+
+            const SHEET_API_URL = "https://script.google.com/macros/s/AKfycbyK-MlWk5QZIGVyc2_a0AgAbpvhkGwUjIaNzlJ4enHapm81cJiR45LUpFcg82BiyB9w/exec";
+
+            const fetchDataFromSheet = async () => {
+                setIsFetching(true);
+                try {
+                    const response = await fetch(SHEET_API_URL);
+                    const result = await response.json();
+                    if (result && !result.error && result.length > 0) {
+                        setAppData(result);
+                        const maxYear = Math.max(...result.map(d => Number(d.year)));
+                        if(maxYear) setSelectedYear(maxYear);
+                        setSelectedBureau('All');
+                    }
+                } catch (error) {
+                    console.error("Fetch error:", error);
+                } finally {
+                    setIsFetching(false);
+                }
+            };
+
+            useEffect(() => { fetchDataFromSheet(); }, []);
+
+            const availableYears = useMemo(() => {
+                const years = [...new Set(appData.map(d => Number(d.year)))].filter(y => y > 0).sort((a,b) => b - a);
+                return years.length ? years : [2568, 2567, 2566];
+            }, [appData]);
+
+            const availableBureaus = useMemo(() => ["All", ...[...new Set(appData.map(d => d.bureau))].filter(Boolean).sort()], [appData]);
+            const availableDivisions = useMemo(() => [...new Set(appData.filter(d => Number(d.year) === selectedYear).map(d => d.division))].filter(Boolean).sort(), [appData, selectedYear]);
+            
+            const [radarArea1, setRadarArea1] = useState("");
+            const [radarArea2, setRadarArea2] = useState("");
+            
+            useEffect(() => {
+                if (availableDivisions.length >= 2) {
+                    setRadarArea1(availableDivisions[0]);
+                    setRadarArea2(availableDivisions[1]);
+                }
+            }, [availableDivisions]);
+
+            // --- Historical Timeline Logic ---
+            const timelineData = useMemo(() => {
+                if (historyViewType === 'bureau') {
+                    // Group by Year for selected Bureau
+                    const baseData = selectedBureau === 'All' ? appData : appData.filter(d => d.bureau === selectedBureau);
+                    const yearMap = {};
+                    baseData.forEach(row => {
+                        const y = Number(row.year);
+                        if (!yearMap[y]) {
+                            yearMap[y] = { year: y, total: 0, offenses: {} };
+                            Object.keys(offenseLabels).forEach(k => yearMap[y].offenses[k] = 0);
+                        }
+                        const rTotal = Object.keys(offenseLabels).reduce((s, k) => s + (Number(row[k])||0), 0);
+                        yearMap[y].total += rTotal;
+                        Object.keys(offenseLabels).forEach(k => yearMap[y].offenses[k] += (Number(row[k])||0));
+                    });
+                    return Object.values(yearMap).sort((a, b) => b.year - a.year);
+                } else {
+                    // Group by Year for selected Offense, column by Bureau
+                    const yearMap = {};
+                    appData.forEach(row => {
+                        const y = Number(row.year);
+                        const b = row.bureau;
+                        const val = Number(row[selectedOffenseHistory]) || 0;
+                        if (!yearMap[y]) {
+                            yearMap[y] = { year: y, total: 0, bureauVals: {} };
+                        }
+                        if (!yearMap[y].bureauVals[b]) yearMap[y].bureauVals[b] = 0;
+                        yearMap[y].bureauVals[b] += val;
+                        yearMap[y].total += val;
+                    });
+                    return Object.values(yearMap).sort((a, b) => b.year - a.year);
+                }
+            }, [appData, selectedBureau, historyViewType, selectedOffenseHistory]);
+
+            // --- 1. Storytelling & Anomaly Detection ---
+            const insights = useMemo(() => {
+                const currentData = appData.filter(d => Number(d.year) === selectedYear && (selectedBureau === 'All' || d.bureau === selectedBureau));
+                const totalCurrent = currentData.reduce((sum, row) => sum + Object.keys(offenseLabels).reduce((s, k) => s + (Number(row[k])||0), 0), 0);
+                const totalsByKey = Object.keys(offenseLabels).map(key => ({
+                    key, name: offenseLabels[key], 
+                    val: currentData.reduce((sum, row) => sum + (Number(row[key])||0), 0)
+                })).sort((a, b) => b.val - a.val);
+                
+                const topOffense = totalsByKey[0];
+                const topPercent = totalCurrent > 0 ? ((topOffense.val / totalCurrent) * 100).toFixed(1) : 0;
+
+                const anomalies = [];
+                currentData.forEach(row => {
+                    const avgData = appData.filter(d => d.division === row.division && Number(d.year) <= selectedYear && Number(d.year) > selectedYear - 3);
+                    Object.keys(offenseLabels).forEach(k => {
+                        const count = Number(row[k]) || 0;
+                        if (count > 100) {
+                            const avgCount = avgData.reduce((s, d) => s + (Number(d[k])||0), 0) / (avgData.length || 1);
+                            if (avgCount > 50 && count > avgCount * 1.5) {
+                                const increase = (((count - avgCount) / avgCount) * 100).toFixed(0);
+                                anomalies.push({ division: row.division, offense: offenseLabels[k], increase, count });
+                            }
+                        }
+                    });
+                });
+                anomalies.sort((a, b) => b.increase - a.increase);
+
+                return { totalCurrent, topOffense, topPercent, anomalies: anomalies.slice(0, 3) };
+            }, [appData, selectedYear, selectedBureau]);
+
+            // --- 2. Pareto Analysis (80/20) ---
+            const paretoData = useMemo(() => {
+                const currentData = appData.filter(d => Number(d.year) === selectedYear && (selectedBureau === 'All' || d.bureau === selectedBureau));
+                let totals = Object.keys(offenseLabels).map(key => ({
+                    name: offenseLabels[key],
+                    value: currentData.reduce((sum, row) => sum + (Number(row[key])||0), 0)
+                })).sort((a, b) => b.value - a.value);
+
+                const sumAll = totals.reduce((s, i) => s + i.value, 0);
+                let runningSum = 0;
+                return totals.map(item => {
+                    runningSum += item.value;
+                    return { ...item, cumulativePercent: sumAll > 0 ? ((runningSum / sumAll) * 100).toFixed(2) : 0 };
+                });
+            }, [appData, selectedYear, selectedBureau]);
+
+            // --- 3. Correlation Analysis ---
+            const correlationData = useMemo(() => {
+                const currentData = appData.filter(d => Number(d.year) === selectedYear);
+                if(currentData.length < 3) return null;
+
+                const keys = Object.keys(offenseLabels);
+                let bestPair = { k1: '', k2: '', r: -1, points: [] };
+
+                const getPearson = (arrX, arrY) => {
+                    let n = arrX.length, sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
+                    for(let i=0; i<n; i++) {
+                        sumX += arrX[i]; sumY += arrY[i]; sumXY += arrX[i]*arrY[i];
+                        sumX2 += arrX[i]*arrX[i]; sumY2 += arrY[i]*arrY[i];
+                    }
+                    const num = (n * sumXY) - (sumX * sumY);
+                    const den = Math.sqrt(((n * sumX2) - (sumX * sumX)) * ((n * sumY2) - (sumY * sumY)));
+                    return den === 0 ? 0 : num / den;
+                };
+
+                for(let i=0; i<keys.length; i++) {
+                    for(let j=i+1; j<keys.length; j++) {
+                        const arrX = currentData.map(d => Number(d[keys[i]])||0);
+                        const arrY = currentData.map(d => Number(d[keys[j]])||0);
+                        const r = getPearson(arrX, arrY);
+                        if(r > bestPair.r && r < 0.99) {
+                            bestPair = { 
+                                k1: keys[i], k2: keys[j], r,
+                                points: currentData.map(d => ({ x: Number(d[keys[i]])||0, y: Number(d[keys[j]])||0, division: d.division }))
+                            };
+                        }
+                    }
+                }
+                return bestPair.r > 0.5 ? {
+                    xLabel: offenseLabels[bestPair.k1], yLabel: offenseLabels[bestPair.k2],
+                    rScore: (bestPair.r * 100).toFixed(0), points: bestPair.points
+                } : null;
+            }, [appData, selectedYear]);
+
+            // --- 4. Radar Data ---
+            const radarChartData = useMemo(() => {
+                const d1 = appData.find(d => Number(d.year) === selectedYear && d.division === radarArea1);
+                const d2 = appData.find(d => Number(d.year) === selectedYear && d.division === radarArea2);
+                if(!d1 || !d2) return null;
+                const getPercents = (row) => {
+                    const total = Object.keys(offenseLabels).reduce((s, k) => s + (Number(row[k])||0), 0);
+                    return Object.keys(offenseLabels).map(k => total === 0 ? 0 : ((Number(row[k])||0) / total) * 100);
+                };
+                return { dataset1: getPercents(d1), dataset2: getPercents(d2) };
+            }, [appData, selectedYear, radarArea1, radarArea2]);
+
+            // --- Tables Data Processing ---
+            const tableData = useMemo(() => {
+                const result = Object.keys(offenseLabels).map(key => {
+                    let curData = appData.filter(d => Number(d.year) === selectedYear);
+                    let preData = appData.filter(d => Number(d.year) === (selectedYear - 1));
+                    let avgData = appData.filter(d => Number(d.year) <= selectedYear && Number(d.year) > selectedYear - 3);
+
+                    if (selectedBureau !== 'All') {
+                        curData = curData.filter(d => d.bureau === selectedBureau);
+                        preData = preData.filter(d => d.bureau === selectedBureau);
+                        avgData = avgData.filter(d => d.bureau === selectedBureau);
+                    }
+
+                    const curTotal = curData.reduce((sum, row) => sum + (Number(row[key]) || 0), 0);
+                    const preTotal = preData.reduce((sum, row) => sum + (Number(row[key]) || 0), 0);
+                    const allTotal = curData.reduce((sum, row) => sum + Object.keys(offenseLabels).reduce((s, k) => s + (Number(row[k]) || 0), 0), 0);
+                    const percentage = allTotal === 0 ? 0 : (curTotal / allTotal) * 100;
+                    const yoy = preTotal > 0 ? ((curTotal - preTotal) / preTotal) * 100 : 0;
+                    const avg3 = avgData.reduce((sum, row) => sum + (Number(row[key]) || 0), 0) / (new Set(avgData.map(d => Number(d.year))).size || 1);
+
+                    return { name: offenseLabels[key], currentTotal: curTotal, percentage, yoy, avg3Years: avg3 };
+                });
+
+                result.sort((a, b) => {
+                    if (a[sortConfig1.key] < b[sortConfig1.key]) return sortConfig1.direction === 'asc' ? -1 : 1;
+                    if (a[sortConfig1.key] > b[sortConfig1.key]) return sortConfig1.direction === 'asc' ? 1 : -1;
+                    return 0;
+                });
+                return result;
+            }, [selectedYear, selectedBureau, appData, sortConfig1]);
+
+            const bureauDivisionData = useMemo(() => {
+                let filtered = appData.filter(d => Number(d.year) === selectedYear);
+                if (selectedBureau !== 'All') filtered = filtered.filter(d => d.bureau === selectedBureau);
+
+                const grouped = {};
+                filtered.forEach(row => {
+                    const groupKey = tableViewMode === 'bureau' ? row.bureau : row.division;
+                    if (!grouped[groupKey]) {
+                        grouped[groupKey] = { bureau: row.bureau, division: row.division, groupName: groupKey, total: 0, offenses: {} };
+                        Object.keys(offenseLabels).forEach(k => grouped[groupKey].offenses[k] = 0);
+                    }
+                    const rowTotal = Object.keys(offenseLabels).reduce((sum, key) => sum + (Number(row[key]) || 0), 0);
+                    grouped[groupKey].total += rowTotal;
+                    Object.keys(offenseLabels).forEach(key => grouped[groupKey].offenses[key] += (Number(row[key]) || 0));
+                });
+
+                const result = Object.values(grouped).map(item => {
+                    const offPer = {};
+                    Object.keys(offenseLabels).forEach(k => offPer[k] = { count: item.offenses[k], percent: item.total === 0 ? 0 : (item.offenses[k] / item.total) * 100 });
+                    return { ...item, offenses: offPer };
+                });
+
+                result.sort((a, b) => {
+                    let aVal = sortConfig2.key.startsWith('o') ? a.offenses[sortConfig2.key].count : (sortConfig2.key === 'groupName' ? a.groupName : a[sortConfig2.key]);
+                    let bVal = sortConfig2.key.startsWith('o') ? b.offenses[sortConfig2.key].count : (sortConfig2.key === 'groupName' ? b.groupName : b[sortConfig2.key]);
+                    if (typeof aVal === 'string' && typeof bVal === 'string') return sortConfig2.direction === 'asc' ? aVal.localeCompare(bVal, 'th') : bVal.localeCompare(aVal, 'th');
+                    return sortConfig2.direction === 'asc' ? aVal - bVal : bVal - aVal;
+                });
+                return result;
+            }, [selectedYear, selectedBureau, appData, sortConfig2, tableViewMode]);
+
+            const exportCSV = () => {
+                const BOM = "\uFEFF";
+                const headers = tableViewMode === 'bureau' ? ["บช.", "ยอดรวม", ...Object.values(offenseLabels)] : ["บช.", "ภ.จว.", "ยอดรวม", ...Object.values(offenseLabels)];
+                const rows = bureauDivisionData.map(r => tableViewMode === 'bureau' ? [r.groupName, r.total, ...Object.keys(offenseLabels).map(k => r.offenses[k].count)] : [r.bureau, r.groupName, r.total, ...Object.keys(offenseLabels).map(k => r.offenses[k].count)]);
+                const blob = new Blob([BOM + [headers.join(","), ...rows.map(e => e.join(","))].join("\n")], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a"); link.href = url; link.download = `Data_${selectedYear}.csv`; link.click();
+            };
+
+            const formatNumber = (num) => new Intl.NumberFormat('th-TH').format(Math.round(num));
+
+            return (
+                <div className="min-h-screen">
+                    <nav className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+                        <div className="max-w-7xl mx-auto px-4 h-16 flex justify-between items-center">
+                            <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">ก</div>
+                                <span className="font-bold text-gray-800 hidden sm:block">การบังคับใช้กฎหมาย 10 ข้อหาหลัก</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <button onClick={exportCSV} className="bg-gray-800 text-white px-3 py-2 rounded text-sm hover:bg-gray-900 transition flex items-center space-x-1">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                    <span className="hidden md:inline">Export</span>
+                                </button>
+                                <button onClick={fetchDataFromSheet} className="bg-emerald-600 text-white px-3 py-2 rounded text-sm hover:bg-emerald-700 transition">Sync</button>
+                                <select className="border border-gray-300 rounded px-2 py-2 text-sm" value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))}>
+                                    {availableYears.map(y => <option key={y} value={y}>ปี {y}</option>)}
+                                </select>
+                                <select className="border border-gray-300 rounded px-2 py-2 text-sm" value={selectedBureau} onChange={e => setSelectedBureau(e.target.value)}>
+                                    {availableBureaus.map(b => <option key={b} value={b}>{b === "All" ? "ทุก บช." : b}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                    </nav>
+
+                    <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+                        {/* Summary & Alerts */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div className="lg:col-span-2 glass-panel p-6 rounded-2xl border border-blue-100 shadow-sm flex space-x-4">
+                                <div className="p-4 bg-blue-100 text-blue-600 rounded-full h-fit">AI</div>
+                                <div>
+                                    <h3 className="font-bold text-gray-800 text-lg">บทสรุปผู้บริหาร</h3>
+                                    <p className="text-gray-600 mt-2">ในปี {selectedYear} {selectedBureau === 'All' ? 'ภาพรวม' : selectedBureau} มีคดีรวม <b className="text-blue-600">{formatNumber(insights.totalCurrent)}</b> รายการ โดยข้อหา <b>"{insights.topOffense?.name}"</b> มีสัดส่วนสูงสุดที่ <b>{insights.topPercent}%</b></p>
+                                </div>
+                            </div>
+                            <div className="bg-red-50 p-6 rounded-2xl border border-red-100 shadow-sm">
+                                <h3 className="font-bold text-red-800 flex items-center mb-4">แจ้งเตือนยอดพุ่งผิดปกติ</h3>
+                                {insights.anomalies.length ? (
+                                    <ul className="space-y-2">
+                                        {insights.anomalies.map((a, i) => <li key={i} className="text-sm flex justify-between bg-white p-2 rounded border border-red-200"><span><b>{a.division}</b>: {a.offense}</span> <b className="text-red-600">+{a.increase}%</b></li>)}
+                                    </ul>
+                                ) : <p className="text-sm text-green-700">ปกติ ไม่พบความผิดปกติ</p>}
+                            </div>
+                        </div>
+
+                        {/* Analysis Charts */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-80">
+                                <h3 className="font-bold text-gray-800 mb-4">กฎ 80/20 (Pareto Analysis)</h3>
+                                <ParetoChart data={paretoData} />
+                            </div>
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-80">
+                                <h3 className="font-bold text-gray-800 mb-4">วิเคราะห์ความสัมพันธ์ (Correlation)</h3>
+                                {correlationData && <CorrelationChart data={correlationData} />}
+                            </div>
+                        </div>
+
+                        {/* Radar Comparison */}
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="font-bold text-gray-800">เปรียบเทียบ Profile พฤติกรรม (%)</h3>
+                                <div className="flex space-x-2">
+                                    <select className="text-xs border rounded p-1" value={radarArea1} onChange={e=>setRadarArea1(e.target.value)}>{availableDivisions.map(d=><option key={d} value={d}>{d}</option>)}</select>
+                                    <select className="text-xs border rounded p-1" value={radarArea2} onChange={e=>setRadarArea2(e.target.value)}>{availableDivisions.map(d=><option key={d} value={d}>{d}</option>)}</select>
+                                </div>
+                            </div>
+                            <div className="h-96"><RadarChart data={radarChartData} label1={radarArea1} label2={radarArea2} /></div>
+                        </div>
+
+                        {/* Historical Timeline Table */}
+                        <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 overflow-hidden">
+                            <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-white flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
+                                <div>
+                                    <h3 className="font-bold text-indigo-900 text-lg">วิเคราะห์แนวโน้มย้อนหลังทุกปี (Historical Timeline)</h3>
+                                    <p className="text-xs text-indigo-600">แสดงข้อมูลเปรียบเทียบตามช่วงเวลาสำหรับหน่วยงานหรือข้อหาที่เลือก</p>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <div className="flex bg-indigo-100 p-1 rounded-lg">
+                                        <button 
+                                            onClick={() => setHistoryViewType('bureau')} 
+                                            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition ${historyViewType === 'bureau' ? 'bg-white text-indigo-700 shadow-sm' : 'text-indigo-500'}`}
+                                        >
+                                            ราย บช.
+                                        </button>
+                                        <button 
+                                            onClick={() => setHistoryViewType('offense')} 
+                                            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition ${historyViewType === 'offense' ? 'bg-white text-indigo-700 shadow-sm' : 'text-indigo-500'}`}
+                                        >
+                                            รายข้อหา
+                                        </button>
+                                    </div>
+                                    {historyViewType === 'offense' && (
+                                        <select 
+                                            className="text-xs border border-indigo-200 rounded p-1.5 bg-white text-indigo-700 font-medium"
+                                            value={selectedOffenseHistory}
+                                            onChange={e => setSelectedOffenseHistory(e.target.value)}
+                                        >
+                                            {Object.keys(offenseLabels).map(k => <option key={k} value={k}>{offenseLabels[k]}</option>)}
+                                        </select>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="overflow-x-auto custom-scrollbar max-h-[500px]">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50 sticky top-0 z-10">
+                                        {historyViewType === 'bureau' ? (
+                                            <tr>
+                                                <th className="px-6 py-3 text-left text-[11px] font-bold text-indigo-900 uppercase border-r bg-indigo-50">ปี พ.ศ.</th>
+                                                <th className="px-6 py-3 text-right text-[11px] font-bold text-indigo-900 uppercase border-r bg-indigo-50/50">รวมทั้งหมด</th>
+                                                {Object.keys(offenseLabels).map(k => (
+                                                    <th key={k} className="px-6 py-3 text-right text-[11px] font-bold text-gray-600 uppercase min-w-[120px]">{offenseLabels[k]}</th>
+                                                ))}
+                                            </tr>
+                                        ) : (
+                                            <tr>
+                                                <th className="px-6 py-3 text-left text-[11px] font-bold text-indigo-900 uppercase border-r bg-indigo-50">ปี พ.ศ.</th>
+                                                <th className="px-6 py-3 text-right text-[11px] font-bold text-indigo-900 uppercase border-r bg-indigo-50/50">ยอดรวมข้อหา</th>
+                                                {availableBureaus.filter(b => b !== 'All').map(b => (
+                                                    <th key={b} className="px-6 py-3 text-right text-[11px] font-bold text-gray-600 uppercase min-w-[100px]">{b}</th>
+                                                ))}
+                                            </tr>
+                                        )}
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {timelineData.map((row, idx) => (
+                                            <tr key={idx} className="hover:bg-indigo-50 transition">
+                                                <td className="px-6 py-4 text-sm font-bold text-indigo-800 border-r bg-indigo-50/20">{row.year}</td>
+                                                <td className="px-6 py-4 text-sm text-right font-black text-indigo-700 border-r bg-indigo-50/10">{formatNumber(row.total)}</td>
+                                                {historyViewType === 'bureau' ? (
+                                                    Object.keys(offenseLabels).map(k => (
+                                                        <td key={k} className="px-6 py-4 text-sm text-right text-gray-700 font-medium">{formatNumber(row.offenses[k])}</td>
+                                                    ))
+                                                ) : (
+                                                    availableBureaus.filter(b => b !== 'All').map(b => (
+                                                        <td key={b} className="px-6 py-4 text-sm text-right text-gray-700 font-medium">{formatNumber(row.bureauVals[b] || 0)}</td>
+                                                    ))
+                                                )}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* Comparison Table */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                                <h3 className="font-bold text-gray-800">ตารางวิเคราะห์เปรียบเทียบเชิงลึก (รายข้อหา ปี {selectedYear})</h3>
+                                <div className="text-[10px] text-gray-400">เปรียบเทียบข้อมูล YoY และค่าเฉลี่ย 3 ปี</div>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase cursor-pointer" onClick={()=>setSortConfig1({key:'name', direction: sortConfig1.direction==='asc'?'desc':'asc'})}>ฐานความผิด <SortIcon columnKey="name" sortConfig={sortConfig1}/></th>
+                                            <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase cursor-pointer" onClick={()=>setSortConfig1({key:'currentTotal', direction: sortConfig1.direction==='asc'?'desc':'asc'})}>จำนวน <SortIcon columnKey="currentTotal" sortConfig={sortConfig1}/></th>
+                                            <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase cursor-pointer" onClick={()=>setSortConfig1({key:'percentage', direction: sortConfig1.direction==='asc'?'desc':'asc'})}>สัดส่วน (%) <SortIcon columnKey="percentage" sortConfig={sortConfig1}/></th>
+                                            <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase cursor-pointer" onClick={()=>setSortConfig1({key:'yoy', direction: sortConfig1.direction==='asc'?'desc':'asc'})}>YoY <SortIcon columnKey="yoy" sortConfig={sortConfig1}/></th>
+                                            <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase cursor-pointer" onClick={()=>setSortConfig1({key:'avg3Years', direction: sortConfig1.direction==='asc'?'desc':'asc'})}>เฉลี่ย 3 ปี <SortIcon columnKey="avg3Years" sortConfig={sortConfig1}/></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {tableData.map((row, i) => (
+                                            <tr key={i} className="hover:bg-gray-50 transition">
+                                                <td className="px-6 py-4 text-sm font-medium text-gray-800">{row.name}</td>
+                                                <td className="px-6 py-4 text-sm text-right font-bold">{formatNumber(row.currentTotal)}</td>
+                                                <td className="px-6 py-4 text-sm text-right">{row.percentage.toFixed(2)}%</td>
+                                                <td className={`px-6 py-4 text-sm text-right font-bold ${row.yoy > 0 ? 'text-red-500' : 'text-emerald-500'}`}>{row.yoy > 0 ? '+' : ''}{row.yoy.toFixed(1)}%</td>
+                                                <td className="px-6 py-4 text-sm text-right text-gray-500">{formatNumber(row.avg3Years)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* Raw Data Table */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                            <div className="px-6 py-5 border-b border-gray-100 bg-gray-50 flex flex-col md:flex-row md:justify-between md:items-center space-y-4 md:space-y-0">
+                                <h3 className="font-bold text-gray-800">ข้อมูลแจกแจงรายหน่วยงาน (Raw Data)</h3>
+                                <div className="flex bg-gray-200 p-1 rounded-lg">
+                                    <button onClick={() => setTableViewMode('bureau')} className={`px-4 py-1.5 text-xs font-medium rounded-md transition ${tableViewMode === 'bureau' ? 'bg-white shadow-sm' : 'text-gray-500'}`}>บช.</button>
+                                    <button onClick={() => setTableViewMode('division')} className={`px-4 py-1.5 text-xs font-medium rounded-md transition ${tableViewMode === 'division' ? 'bg-white shadow-sm' : 'text-gray-500'}`}>ภ.จว.</button>
+                                </div>
+                            </div>
+                            <div className="overflow-x-auto max-h-96 custom-scrollbar">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50 sticky top-0">
+                                        <tr>
+                                            {tableViewMode === 'division' && <th className="px-6 py-3 text-left text-[10px] font-bold text-gray-500 uppercase border-r" onClick={()=>setSortConfig2({key:'bureau', direction: sortConfig2.direction==='asc'?'desc':'asc'})}>บช.</th>}
+                                            <th className="px-6 py-3 text-left text-[10px] font-bold text-gray-500 uppercase border-r" onClick={()=>setSortConfig2({key:'groupName', direction: sortConfig2.direction==='asc'?'desc':'asc'})}>{tableViewMode === 'bureau' ? 'บช.' : 'บก./ภ.จว.'}</th>
+                                            <th className="px-6 py-3 text-right text-[10px] font-bold text-blue-700 uppercase border-r bg-blue-50" onClick={()=>setSortConfig2({key:'total', direction: sortConfig2.direction==='asc'?'desc':'asc'})}>ยอดรวม</th>
+                                            {Object.keys(offenseLabels).map(k => <th key={k} className="px-6 py-3 text-right text-[10px] font-bold text-gray-500 uppercase min-w-[120px] hover:bg-gray-100 cursor-pointer" onClick={()=>setSortConfig2({key:k, direction: sortConfig2.direction==='asc'?'desc':'asc'})}>{offenseLabels[k]}</th>)}
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {bureauDivisionData.map((row, i) => (
+                                            <tr key={i} className="hover:bg-blue-50 transition">
+                                                {tableViewMode === 'division' && <td className="px-6 py-3 text-xs border-r">{row.bureau}</td>}
+                                                <td className={`px-6 py-3 text-xs border-r ${tableViewMode === 'bureau' ? 'font-bold' : ''}`}>{row.groupName}</td>
+                                                <td className="px-6 py-3 text-xs text-right font-bold text-blue-700 bg-blue-50/20 border-r">{formatNumber(row.total)}</td>
+                                                {Object.keys(offenseLabels).map(k => (
+                                                    <td key={k} className="px-6 py-3 text-right">
+                                                        <div className="text-xs font-semibold">{formatNumber(row.offenses[k].count)}</div>
+                                                        <div className="text-[9px] text-gray-400">{row.offenses[k].percent.toFixed(1)}%</div>
+                                                    </td>
+                                                ))}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
